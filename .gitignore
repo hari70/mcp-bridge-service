@@ -1,0 +1,107 @@
+# ===== Node.js =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ===== Environment Variables =====
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+ClaudeAPIKey.env
+
+# ===== API Keys & Tokens =====
+api-keys.json
+*oauth*.json
+*keys*.json
+*.pem
+*.key
+
+# ===== Build & Distribution =====
+dist/
+build/
+*.tsbuildinfo
+
+# ===== Logs =====
+*.log
+logs/
+*.log.*
+mcp-server.log
+
+# ===== Coverage & Testing =====
+coverage/
+.coverage
+.nyc_output/
+.jest/
+
+# ===== Python (for Strava MCP) =====
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+myenv/
+.Python
+*.egg-info/
+
+# ===== TypeScript =====
+*.tsbuildinfo
+
+# ===== OS & System Files =====
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ===== IDE & Editors =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cursorignore
+
+# ===== Git =====
+.git/
+.gitattributes
+
+# ===== Docker (archived but just in case) =====
+Dockerfile
+*.dockerfile
+docker-compose*.yml
+
+# ===== Backup & Archive =====
+archive/
+backup/
+*backup*
+*old*
+
+# ===== Runtime & Cache =====
+.npm
+.eslintcache
+.parcel-cache/
+.cache/
+
+# ===== SSL Certificates =====
+*.crt
+*.csr
+*.pem
+
+# ===== Railway/Deployment Specific =====
+.railway/
+
+# ===== GitHub Keys =====
+ghkeys
+ghkeys.pub
+
+# ===== Miscellaneous =====
+*.tmp
+*.temp
+.temporary/
