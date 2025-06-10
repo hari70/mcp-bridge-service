@@ -292,10 +292,23 @@ class MCPBridgeService {
         this.apiKeys = new Set();
         this.claudeApiKey = process.env.CLAUDE_API_KEY;
         this.lastQueryResult = null;
+        this.initialized = false;
         
         this.setupMiddleware();
         this.setupRoutes();
-        this.initializeMCPClients();
+    }
+
+    async initialize() {
+        if (this.initialized) return;
+        
+        try {
+            await this.initializeMCPClients();
+            this.initialized = true;
+            console.log('✅ MCP Bridge Service initialization complete');
+        } catch (error) {
+            console.error('❌ MCP Bridge Service initialization failed:', error);
+            this.initialized = false;
+        }
     }
 
     setupMiddleware() {
@@ -327,6 +340,17 @@ class MCPBridgeService {
     }
 
     setupRoutes() {
+        // Root endpoint for Railway health check
+        this.app.get('/', (req, res) => {
+            res.json({ 
+                service: 'MCP Bridge Service',
+                status: 'healthy', 
+                timestamp: new Date().toISOString(),
+                version: '1.0.0',
+                mcpServers: Array.from(this.mcpClients.keys())
+            });
+        });
+
         // Health check
         this.app.get('/health', (req, res) => {
             const serverStatus = {};
@@ -622,17 +646,76 @@ class MCPBridgeService {
         return endDate.toISOString().replace(/\.\d{3}Z$/, 'Z');
     }
 
-    start() {
-        this.app.listen(this.port, () => {
+    async start() {
+        // Initialize MCP clients first
+        await this.initialize();
+        
+        const server = this.app.listen(this.port, '0.0.0.0', () => {
             console.log(`🚀 Railway MCP Bridge Service running on port ${this.port}`);
             console.log(`📊 Health check: /health`);
             console.log(`🔧 Connected MCP Servers: ${Array.from(this.mcpClients.keys()).join(', ')}`);
+            
+            // Log connection status for each server
+            for (const [name, client] of this.mcpClients) {
+                const status = client.connected ? '✅ Connected' : '❌ Disconnected';
+                const toolCount = client.tools ? client.tools.length : 0;
+                console.log(`   - ${name}: ${status} (${toolCount} tools)`);
+            }
         });
+
+        // Handle server errors
+        server.on('error', (error) => {
+            console.error('❌ Server error:', error);
+            if (error.code === 'EADDRINUSE') {
+                console.error(`Port ${this.port} is already in use`);
+                process.exit(1);
+            }
+        });
+
+        // Handle uncaught exceptions
+        process.on('uncaughtException', (error) => {
+            console.error('❌ Uncaught Exception:', error);
+            // Don't exit immediately - let Railway handle it
+        });
+
+        process.on('unhandledRejection', (reason, promise) => {
+            console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+            // Don't exit immediately - let Railway handle it
+        });
+
+        // Graceful shutdown
+        process.on('SIGTERM', () => {
+            console.log('📦 Received SIGTERM, shutting down gracefully...');
+            server.close(() => {
+                console.log('👋 Server closed');
+                process.exit(0);
+            });
+        });
+
+        process.on('SIGINT', () => {
+            console.log('📦 Received SIGINT, shutting down gracefully...');
+            server.close(() => {
+                console.log('👋 Server closed');
+                process.exit(0);
+            });
+        });
+
+        return server;
     }
 }
 
 // Start the service
-const service = new MCPBridgeService();
-service.start();
+async function main() {
+    try {
+        const service = new MCPBridgeService();
+        await service.start();
+    } catch (error) {
+        console.error('❌ Failed to start MCP Bridge Service:', error);
+        process.exit(1);
+    }
+}
+
+// Run the service
+main();
 
 module.exports = MCPBridgeService;
