@@ -197,7 +197,7 @@ class MCPClient {
 class MCPBridgeService {
     constructor() {
         this.app = express();
-        this.port = 3001;
+        this.port = process.env.PORT || 3001;
         this.mcpClients = new Map();
         this.apiKeys = new Set();
         this.claudeApiKey = process.env.CLAUDE_API_KEY;
