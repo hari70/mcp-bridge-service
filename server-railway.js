@@ -67,11 +67,14 @@ class HTTPMCPClient {
             ];
         } else if (this.name === 'google-calendar') {
             return [
-                { name: 'list-calendars' },
-                { name: 'list-events' },
-                { name: 'create-event' },
-                { name: 'search-events' },
-                { name: 'delete-event' }
+                { name: 'list_gcal_calendars' },
+                { name: 'list_gcal_events' },
+                { name: 'fetch_gcal_event' },
+                { name: 'search_gcal_events' },
+                { name: 'create_gcal_event' },
+                { name: 'update_gcal_event' },
+                { name: 'delete_gcal_event' },
+                { name: 'find_free_time' }
             ];
         }
         return [];
@@ -622,38 +625,119 @@ class MCPBridgeService {
                         result = {
                             tools: [
                                 {
-                                    name: 'list-calendars',
-                                    description: 'List all calendars for the authenticated user',
-                                    inputSchema: { type: 'object', properties: {} }
-                                },
-                                {
-                                    name: 'list-events',
-                                    description: 'List events from a specific calendar',
+                                    name: 'list_gcal_calendars',
+                                    description: 'List all available calendars in Google Calendar',
                                     inputSchema: {
                                         type: 'object',
                                         properties: {
-                                            calendarId: { type: 'string', description: 'Calendar ID (default: primary)' },
-                                            timeMin: { type: 'string', description: 'Lower bound (exclusive) for an event\'s end time' },
-                                            timeMax: { type: 'string', description: 'Upper bound (exclusive) for an event\'s start time' },
-                                            maxResults: { type: 'integer', description: 'Maximum number of events returned (default: 10)' }
+                                            page_token: { type: 'string', description: 'Token for pagination' }
                                         }
                                     }
                                 },
                                 {
-                                    name: 'create-event',
-                                    description: 'Create a new event',
+                                    name: 'list_gcal_events',
+                                    description: 'This tool lists or searches events from a specific Google Calendar',
                                     inputSchema: {
                                         type: 'object',
                                         properties: {
-                                            calendarId: { type: 'string', description: 'Calendar ID (default: primary)' },
-                                            summary: { type: 'string', description: 'Event title' },
-                                            description: { type: 'string', description: 'Event description' },
-                                            start: { type: 'string', description: 'Start time (ISO 8601)' },
-                                            end: { type: 'string', description: 'End time (ISO 8601)' },
-                                            timeZone: { type: 'string', description: 'Time zone' },
-                                            location: { type: 'string', description: 'Event location' }
+                                            calendar_id: { type: 'string', description: 'Always supply this field explicitly. Use the default of \'primary\' unless the user tells you have a good reason to use a specific calendar', default: 'primary' },
+                                            max_results: { type: 'integer', description: 'Maximum number of events returned per calendar', default: 25 },
+                                            page_token: { type: 'string', description: 'Token specifying which result page to return' },
+                                            query: { type: 'string', description: 'Free text search terms to find events' },
+                                            time_max: { type: 'string', description: 'Upper bound (exclusive) for an event\'s start time to filter by', format: 'date-time' },
+                                            time_min: { type: 'string', description: 'Lower bound (exclusive) for an event\'s end time to filter by', format: 'date-time' },
+                                            time_zone: { type: 'string', description: 'Time zone used in the response, formatted as an IANA Time Zone Database name' }
                                         },
-                                        required: ['summary', 'start', 'end', 'timeZone']
+                                        required: ['calendar_id']
+                                    }
+                                },
+                                {
+                                    name: 'fetch_gcal_event',
+                                    description: 'Retrieve a specific event from a Google calendar',
+                                    inputSchema: {
+                                        type: 'object',
+                                        properties: {
+                                            calendar_id: { type: 'string', description: 'The ID of the calendar containing the event' },
+                                            event_id: { type: 'string', description: 'The ID of the event to retrieve' }
+                                        },
+                                        required: ['calendar_id', 'event_id']
+                                    }
+                                },
+                                {
+                                    name: 'search_gcal_events',
+                                    description: 'Search for events in a calendar by text query',
+                                    inputSchema: {
+                                        type: 'object',
+                                        properties: {
+                                            calendar_id: { type: 'string', description: 'ID of the calendar to search events in (use \'primary\' for the main calendar)' },
+                                            query: { type: 'string', description: 'Free text search query' },
+                                            time_max: { type: 'string', description: 'End time boundary in ISO format with timezone required', format: 'date-time' },
+                                            time_min: { type: 'string', description: 'Start time boundary in ISO format with timezone required', format: 'date-time' }
+                                        },
+                                        required: ['calendar_id', 'query']
+                                    }
+                                },
+                                {
+                                    name: 'create_gcal_event',
+                                    description: 'Create a new calendar event',
+                                    inputSchema: {
+                                        type: 'object',
+                                        properties: {
+                                            calendar_id: { type: 'string', description: 'ID of the calendar to create the event in (use \'primary\' for the main calendar)' },
+                                            summary: { type: 'string', description: 'Title of the event' },
+                                            description: { type: 'string', description: 'Description/notes for the event (optional)' },
+                                            start: { type: 'string', description: 'Start time in ISO format with timezone required', format: 'date-time' },
+                                            end: { type: 'string', description: 'End time in ISO format with timezone required', format: 'date-time' },
+                                            time_zone: { type: 'string', description: 'Timezone of the event start/end times' },
+                                            location: { type: 'string', description: 'Location of the event (optional)' },
+                                            attendees: { type: 'array', description: 'List of attendee email addresses (optional)', items: { type: 'object', properties: { email: { type: 'string', format: 'email' } } } }
+                                        },
+                                        required: ['calendar_id', 'summary', 'start', 'end', 'time_zone']
+                                    }
+                                },
+                                {
+                                    name: 'update_gcal_event',
+                                    description: 'Update an existing calendar event',
+                                    inputSchema: {
+                                        type: 'object',
+                                        properties: {
+                                            calendar_id: { type: 'string', description: 'ID of the calendar containing the event' },
+                                            event_id: { type: 'string', description: 'ID of the event to update' },
+                                            summary: { type: 'string', description: 'New title for the event (optional)' },
+                                            description: { type: 'string', description: 'New description for the event (optional)' },
+                                            start: { type: 'string', description: 'New start time in ISO format with timezone required', format: 'date-time' },
+                                            end: { type: 'string', description: 'New end time in ISO format with timezone required', format: 'date-time' },
+                                            time_zone: { type: 'string', description: 'Timezone for the start/end times' },
+                                            location: { type: 'string', description: 'New location for the event (optional)' },
+                                            attendees: { type: 'array', description: 'New list of attendee email addresses (optional)', items: { type: 'object', properties: { email: { type: 'string', format: 'email' } } } }
+                                        },
+                                        required: ['calendar_id', 'event_id', 'time_zone']
+                                    }
+                                },
+                                {
+                                    name: 'delete_gcal_event',
+                                    description: 'Delete a calendar event',
+                                    inputSchema: {
+                                        type: 'object',
+                                        properties: {
+                                            calendar_id: { type: 'string', description: 'ID of the calendar containing the event' },
+                                            event_id: { type: 'string', description: 'ID of the event to delete' }
+                                        },
+                                        required: ['calendar_id', 'event_id']
+                                    }
+                                },
+                                {
+                                    name: 'find_free_time',
+                                    description: 'Use this tool to find free time periods across a list of calendars',
+                                    inputSchema: {
+                                        type: 'object',
+                                        properties: {
+                                            calendar_ids: { type: 'array', description: 'List of calendar IDs to analyze for free time intervals', items: { type: 'string' } },
+                                            time_min: { type: 'string', description: 'Lower bound (exclusive) for an event\'s end time to filter by' },
+                                            time_max: { type: 'string', description: 'Upper bound (exclusive) for an event\'s start time to filter by' },
+                                            time_zone: { type: 'string', description: 'Time zone used in the response, formatted as an IANA Time Zone Database name' }
+                                        },
+                                        required: ['calendar_ids', 'time_max', 'time_min']
                                     }
                                 }
                             ]
@@ -771,8 +855,10 @@ class MCPBridgeService {
         
         try {
             switch (toolName) {
-                case 'list-calendars':
-                    const calendars = await calendar.calendarList.list();
+                case 'list_gcal_calendars':
+                    const calendars = await calendar.calendarList.list({
+                        pageToken: parameters.page_token
+                    });
                     return {
                         content: [{
                             type: 'text',
@@ -780,12 +866,15 @@ class MCPBridgeService {
                         }]
                     };
                     
-                case 'list-events':
+                case 'list_gcal_events':
                     const events = await calendar.events.list({
-                        calendarId: parameters.calendarId || 'primary',
-                        timeMin: parameters.timeMin,
-                        timeMax: parameters.timeMax,
-                        maxResults: parameters.maxResults || 10,
+                        calendarId: parameters.calendar_id || 'primary',
+                        timeMin: parameters.time_min,
+                        timeMax: parameters.time_max,
+                        maxResults: parameters.max_results || 25,
+                        pageToken: parameters.page_token,
+                        q: parameters.query,
+                        timeZone: parameters.time_zone,
                         singleEvents: true,
                         orderBy: 'startTime'
                     });
@@ -796,30 +885,129 @@ class MCPBridgeService {
                         }]
                     };
                     
-                case 'create-event':
-                    const event = {
+                case 'fetch_gcal_event':
+                    const event = await calendar.events.get({
+                        calendarId: parameters.calendar_id,
+                        eventId: parameters.event_id
+                    });
+                    return {
+                        content: [{
+                            type: 'text',
+                            text: JSON.stringify(event.data, null, 2)
+                        }]
+                    };
+                    
+                case 'search_gcal_events':
+                    const searchEvents = await calendar.events.list({
+                        calendarId: parameters.calendar_id,
+                        q: parameters.query,
+                        timeMin: parameters.time_min,
+                        timeMax: parameters.time_max,
+                        singleEvents: true,
+                        orderBy: 'startTime'
+                    });
+                    return {
+                        content: [{
+                            type: 'text',
+                            text: JSON.stringify(searchEvents.data.items || [], null, 2)
+                        }]
+                    };
+                    
+                case 'create_gcal_event':
+                    const newEvent = {
                         summary: parameters.summary,
                         description: parameters.description,
                         location: parameters.location,
                         start: {
                             dateTime: parameters.start,
-                            timeZone: parameters.timeZone
+                            timeZone: parameters.time_zone
                         },
                         end: {
                             dateTime: parameters.end,
-                            timeZone: parameters.timeZone
+                            timeZone: parameters.time_zone
                         }
                     };
                     
+                    if (parameters.attendees) {
+                        newEvent.attendees = parameters.attendees;
+                    }
+                    
                     const createdEvent = await calendar.events.insert({
-                        calendarId: parameters.calendarId || 'primary',
-                        requestBody: event
+                        calendarId: parameters.calendar_id || 'primary',
+                        requestBody: newEvent
                     });
                     
                     return {
                         content: [{
                             type: 'text',
                             text: JSON.stringify(createdEvent.data, null, 2)
+                        }]
+                    };
+                    
+                case 'update_gcal_event':
+                    const updateEvent = {};
+                    
+                    if (parameters.summary) updateEvent.summary = parameters.summary;
+                    if (parameters.description) updateEvent.description = parameters.description;
+                    if (parameters.location) updateEvent.location = parameters.location;
+                    if (parameters.attendees) updateEvent.attendees = parameters.attendees;
+                    
+                    if (parameters.start) {
+                        updateEvent.start = {
+                            dateTime: parameters.start,
+                            timeZone: parameters.time_zone
+                        };
+                    }
+                    
+                    if (parameters.end) {
+                        updateEvent.end = {
+                            dateTime: parameters.end,
+                            timeZone: parameters.time_zone
+                        };
+                    }
+                    
+                    const updatedEvent = await calendar.events.update({
+                        calendarId: parameters.calendar_id,
+                        eventId: parameters.event_id,
+                        requestBody: updateEvent
+                    });
+                    
+                    return {
+                        content: [{
+                            type: 'text',
+                            text: JSON.stringify(updatedEvent.data, null, 2)
+                        }]
+                    };
+                    
+                case 'delete_gcal_event':
+                    await calendar.events.delete({
+                        calendarId: parameters.calendar_id,
+                        eventId: parameters.event_id
+                    });
+                    
+                    return {
+                        content: [{
+                            type: 'text',
+                            text: JSON.stringify({ success: true, message: 'Event deleted successfully' }, null, 2)
+                        }]
+                    };
+                    
+                case 'find_free_time':
+                    const freeBusyQuery = {
+                        timeMin: parameters.time_min,
+                        timeMax: parameters.time_max,
+                        timeZone: parameters.time_zone,
+                        items: parameters.calendar_ids.map(id => ({ id }))
+                    };
+                    
+                    const freeBusy = await calendar.freebusy.query({
+                        requestBody: freeBusyQuery
+                    });
+                    
+                    return {
+                        content: [{
+                            type: 'text',
+                            text: JSON.stringify(freeBusy.data, null, 2)
                         }]
                     };
                     
